@@ -10,7 +10,6 @@ import { prismaClient } from "@/app/lib/db";
 
 
 const CreateStreamSchema = z.object({
-  creatorId: z.string(),
   url: z.string(),
 });
 
@@ -60,27 +59,39 @@ export async function POST(req: NextRequest) {
 
     const extractedId = data.url.split("?v=")[1];
 
-    const isMember = await prismaClient.roomUser.findUnique({
+    // Find the room where the user is a member
+    const roomUser = await prismaClient.roomUser.findFirst({
       where: {
-        userId_roomId:{
-          userId : session.user.id,
-          roomId : room.id
-        }
-      }
-    })
-
-    if(!isMember) throw new Error("User is not a member of the room");
-  const stream =  await prismaClient.stream.create({
-      data:{
         userId: session.user.id,
+      },
+      include: {
+        room: true,
+      },
+    });
+
+    if (!roomUser || !roomUser.room) {
+      return NextResponse.json(
+        {
+          message: "Room not found for user",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const stream = await prismaClient.stream.create({
+      data: {
+        userId: session.user.id,
+        roomId: roomUser.room.id,
         url: data.url,
         extractedId,
         type: "Youtube",
       }
-    })
+    });
 
     return NextResponse.json({
-      message : "Stream created successfully",
+      message: "Stream created successfully",
       id: stream.id,
     });
   } catch (error) {
@@ -92,24 +103,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  const creatorId = req.nextUrl.searchParams.get("creatorId");
-
-  if(!creatorId){
-    return NextResponse.json({
-      message: "creatorId is required",
-    },{
-      status: 400,
-    })
-  
-  }
-  const streams  = await prismaClient.stream.findMany({
-    where:{
-      userId: creatorId ?? "",
-    }
-  })
-
-  return NextResponse.json({
-    streams,
-  });
-}
