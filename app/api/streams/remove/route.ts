@@ -1,6 +1,7 @@
 
 import db from "@/lib/db";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -9,7 +10,7 @@ const RemoveStreamSchema = z.object({
 });
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {
     return NextResponse.json(

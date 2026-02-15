@@ -5,6 +5,7 @@ import db from "@/lib/db";
 import youtubesearchapi from "youtube-search-api";
 import { YT_REGEX } from "@/lib/utils";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 import { prismaClient } from "@/app/lib/db";
 
@@ -17,7 +18,7 @@ const MAX_QUEUE_LEN = 20;
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session?.user.id) {
       return NextResponse.json(

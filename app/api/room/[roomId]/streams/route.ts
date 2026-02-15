@@ -1,11 +1,12 @@
 import { prismaClient } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/lib/auth-options";
 import { NextRequest } from "next/server";
 import { Stream } from "stream";
 
 export async function GET(req: NextRequest, { params }: { params: { roomId: string } }) {
 
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user.id) {
         return new Response(JSON.stringify({
             message: "Unauthenticated"

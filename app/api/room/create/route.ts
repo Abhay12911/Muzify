@@ -1,13 +1,15 @@
+
 import { prismaClient } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
 export async function POST(req: NextRequest) {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session?.user.id) {
         return new Response(JSON.stringify({ message: "Unauthenticated" }), { status: 403 });
@@ -32,6 +34,7 @@ export async function POST(req: NextRequest) {
             return Response.json({
                 message: "Error while creating room",
                 error: (error as Error).message,
+                // console: console.log(error)
             }, { status: 500
             })
     }
