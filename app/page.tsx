@@ -83,7 +83,7 @@ export default function Home() {
     if (session.data?.user) {
       router.push("/home");
     } else {
-      signIn();
+      signIn(undefined, { callbackUrl: "/home" });
     }
   };
 

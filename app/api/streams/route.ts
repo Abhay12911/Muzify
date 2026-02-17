@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import db from "@/lib/db";
+
 //@ts-ignore
 import youtubesearchapi from "youtube-search-api";
 import { YT_REGEX } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { prismaClient } from "@/app/lib/db";
 
 const CreateStreamSchema = z.object({
   url: z.string(),
+  roomId: z.string(),
 });
 
 const MAX_QUEUE_LEN = 20;
@@ -58,37 +59,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const extractedId = data.url.split("?v=")[1];
-
-    // Find the room where the user is a member
-    const roomUser = await prismaClient.roomUser.findFirst({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        room: true,
-      },
-    });
-
-    if (!roomUser || !roomUser.room) {
-      return NextResponse.json(
-        {
-          message: "Room not found for user",
-        },
-        {
-          status: 404,
-        },
-      );
-    }
+    const extractedId = videoId;
 
     const stream = await prismaClient.stream.create({
       data: {
         userId: session.user.id,
-        roomId: roomUser.room.id,
+        roomId: data.roomId,
         url: data.url,
         extractedId,
         type: "Youtube",
-      }
+      },
     });
 
     return NextResponse.json({

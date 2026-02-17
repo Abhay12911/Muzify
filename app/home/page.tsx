@@ -1,15 +1,29 @@
-import HomeView from "@/components/HomeView";
-import { authOptions } from "@/lib/auth-options";
+import { authOptions } from "../api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { prismaClient } from "@/app/lib/db";
+import HomeClient from "../components/home/HomeClient";
 
-
-
-export default async function Home(){
-  const session =await  getServerSession(authOptions);
+export default async function Home() {
+  const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {
-    return <h1>Please Log in....</h1>;
+    redirect("/");
   }
- return <HomeView></HomeView>
 
+  const rooms = await prismaClient.room.findMany({
+    where: {
+      users: {
+        some: {
+          userId: session.user.id,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      _count: { select: { users: true, streams: true } },
+    },
+  });
+
+  return <HomeClient rooms={rooms} userName={session.user.name ?? "User"} />;
 }

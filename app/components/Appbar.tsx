@@ -26,7 +26,7 @@ export function Appbar() {
             </button>
           ) : (
             <button
-              onClick={() => signIn()}
+              onClick={() => signIn(undefined, { callbackUrl: "/home" })}
               className="rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
             >
               Sign in
