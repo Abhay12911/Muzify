@@ -3,7 +3,7 @@ import http from "http";
 const server = http.createServer();
 const wss = new WebSocketServer({ server });
 
-const port = 8080;
+const port = process.env.PORT || 8080;
 
 const rooms = new Map<string, Set<WebSocket>>();
 const socketToRoom = new Map<WebSocket, string>();
