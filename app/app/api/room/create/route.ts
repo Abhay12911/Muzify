@@ -2,7 +2,7 @@
 import { prismaClient } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/lib/auth";
 
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();

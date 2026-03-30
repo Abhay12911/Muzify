@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import youtubesearchapi from "youtube-search-api";
 import { YT_REGEX } from "@/app/lib/utils";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/lib/auth";
 
 import { prismaClient } from "@/app/lib/db";
 
