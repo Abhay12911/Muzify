@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Appbar } from "../Appbar";
@@ -20,29 +20,51 @@ export default function RoomClient({
 }) {
   const router = useRouter();
   const [streams, setStreams] = useState<Stream[]>([]);
-  const [currentStream, setCurrentStream] = useState<Stream | null>(null);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
-  const { notifyStreamUpdate } = useRoomSocket(roomId, () => fetchStreams());
 
-  const fetchStreams = async () => {
+  const fetchStreams = useCallback(async () => {
     try {
       const res = await fetch(`/api/room/${roomId}/streams`);
       if (!res.ok) throw new Error("Failed to fetch streams");
       const data: Stream[] = await res.json();
       setStreams(data);
-
-      if (!currentStream && data.length > 0) {
-        setCurrentStream(data[0]);
-      }
     } catch {
       // silently handle
     } finally {
       setLoading(false);
     }
-  };
+  }, [roomId]);
+
+  const { notifyStreamUpdate, setRoomCurrentStream } = useRoomSocket(
+    roomId,
+    fetchStreams,
+    setCurrentStreamId
+  );
+
+  useEffect(() => {
+    if (streams.length === 0) {
+      setCurrentStreamId(null);
+      return;
+    }
+
+    if (!currentStreamId) {
+      const fallbackId = streams[0].id;
+      setCurrentStreamId(fallbackId);
+      setRoomCurrentStream(fallbackId);
+      return;
+    }
+
+    const exists = streams.some((stream) => stream.id === currentStreamId);
+    if (!exists) {
+      const fallbackId = streams[0].id;
+      setCurrentStreamId(fallbackId);
+      setRoomCurrentStream(fallbackId);
+    }
+  }, [streams, currentStreamId, setRoomCurrentStream]);
 
   useEffect(() => {
     fetchStreams();
@@ -100,12 +122,26 @@ export default function RoomClient({
     }
   };
 
-  const handlePlayNext = () => {
-    const next = streams.find((s) => s.id !== currentStream?.id);
-    if (next) setCurrentStream(next);
-  };
+  const handlePlayNext = useCallback(() => {
+    const next = streams.find((s) => s.id !== currentStreamId);
+    if (!next) return;
+    setCurrentStreamId(next.id);
+    setRoomCurrentStream(next.id);
+  }, [streams, currentStreamId, setRoomCurrentStream]);
 
-  const queue = streams.filter((s) => s.id !== currentStream?.id);
+  const currentStream = useMemo(
+    () => streams.find((stream) => stream.id === currentStreamId) ?? null,
+    [streams, currentStreamId]
+  );
+
+  const queue = currentStream
+    ? streams.filter((stream) => stream.id !== currentStream.id)
+    : streams;
+
+  const handlePlay = useCallback((stream: Stream) => {
+    setCurrentStreamId(stream.id);
+    setRoomCurrentStream(stream.id);
+  }, [setRoomCurrentStream]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
@@ -147,7 +183,7 @@ export default function RoomClient({
             <QueueList
               queue={queue}
               userId={userId}
-              onPlay={setCurrentStream}
+              onPlay={handlePlay}
               onUpvote={handleUpvote}
               onDownvote={handleDownvote}
             />

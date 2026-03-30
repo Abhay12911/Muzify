@@ -7,6 +7,7 @@ const port = 8080;
 
 const rooms = new Map<string, Set<WebSocket>>();
 const socketToRoom = new Map<WebSocket, string>();
+const roomToCurrentStream = new Map<string, string>();
 
 //excludes? -> excludes the sender to hear its own message
 function broadcaseToRoom(roomId: string, message: string, excludesWs?: WebSocket) {
@@ -49,27 +50,36 @@ wss.on("connection", (ws: WebSocket) => {
                 rooms.get(roomId)?.add(ws);
                 socketToRoom.set(ws, roomId);
                 ws.send(JSON.stringify({ type: "joined-room", roomId }));
+
+                const currentStreamId = roomToCurrentStream.get(roomId);
+                if (currentStreamId) {
+                    ws.send(JSON.stringify({ type: "current-stream", streamId: currentStreamId }));
+                }
             }
             else if (message.type === "stream-updated") {
                 const roomId = socketToRoom.get(ws);
                 if (!roomId) return;
                 broadcaseToRoom(roomId, JSON.stringify({ type: "stream-updated" }), ws);
-
             }
+            else if (message.type === "set-current-stream") {
+                const roomId = socketToRoom.get(ws);
+                const { streamId } = message;
+                if (!roomId || !streamId) return;
 
-
+                roomToCurrentStream.set(roomId, streamId);
+                broadcaseToRoom(roomId, JSON.stringify({ type: "current-stream", streamId }));
+            }
         } catch (err) {
             console.error("Failed to parse message", err);
         }
+    });
 
-        ws.on("close", () => {
-            removeFromRoom(ws);
-            console.log("client disconnected");
+    ws.on("close", () => {
+        removeFromRoom(ws);
+        console.log("client disconnected");
+    });
+});
 
-        })
-    })
-
-    server.listen(port, () => {
-        console.log(`WebSocket server is running on port ${port}`);
-    })
+server.listen(port, () => {
+    console.log(`WebSocket server is running on port ${port}`);
 });

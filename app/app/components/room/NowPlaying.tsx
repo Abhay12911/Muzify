@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { SkipForward, Music } from "lucide-react";
+import YouTubePlayer from "youtube-player";
 import type { Stream } from "./types";
 
 interface NowPlayingProps {
@@ -15,6 +17,55 @@ export default function NowPlaying({
   queueLength,
   onPlayNext,
 }: NowPlayingProps) {
+  const playerContainerRef = useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
+  const activeVideoIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentStream || !playerContainerRef.current) return;
+
+    const nextVideoId = currentStream.extractedId;
+
+    const initOrLoadPlayer = async () => {
+      if (!playerRef.current) {
+        const player = YouTubePlayer(playerContainerRef.current!, {
+          videoId: nextVideoId,
+          playerVars: {
+            autoplay: 1,
+            rel: 0,
+          },
+        });
+
+        player.on("stateChange", (event: { data: number }) => {
+          // YouTube ended state is 0.
+          if (event.data === 0) {
+            onPlayNext();
+          }
+        });
+
+        playerRef.current = player;
+        activeVideoIdRef.current = nextVideoId;
+        return;
+      }
+
+      if (activeVideoIdRef.current !== nextVideoId) {
+        activeVideoIdRef.current = nextVideoId;
+        await playerRef.current.loadVideoById(nextVideoId);
+      }
+    };
+
+    initOrLoadPlayer();
+  }, [currentStream, onPlayNext]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -24,13 +75,7 @@ export default function NowPlaying({
       {currentStream ? (
         <>
           <div className="relative aspect-video w-full bg-black">
-            <iframe
-              key={currentStream.extractedId}
-              src={`https://www.youtube.com/embed/${currentStream.extractedId}?autoplay=1&rel=0`}
-              className="absolute inset-0 h-full w-full"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
+            <div ref={playerContainerRef} className="absolute inset-0 h-full w-full" />
           </div>
           <div className="flex items-center justify-between p-4">
             <div className="min-w-0 flex-1">

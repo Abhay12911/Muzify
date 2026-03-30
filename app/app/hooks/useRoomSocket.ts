@@ -4,7 +4,11 @@ import { useEffect, useRef, useCallback } from "react";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
 
-export const useRoomSocket = (roomId: string, onStreamUpdated: () => void) => {
+export const useRoomSocket = (
+    roomId: string,
+    onStreamUpdated: () => void,
+    onCurrentStreamChanged: (streamId: string) => void
+) => {
     const wsRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -22,6 +26,8 @@ export const useRoomSocket = (roomId: string, onStreamUpdated: () => void) => {
                 const data = JSON.parse(event.data);
                 if (data.type === "stream-updated") {
                     onStreamUpdated(); // this will be fetchStreams()
+                } else if (data.type === "current-stream" && data.streamId) {
+                    onCurrentStreamChanged(data.streamId);
                 }
             } catch {
                 // ignore non-JSON messages
@@ -40,7 +46,7 @@ export const useRoomSocket = (roomId: string, onStreamUpdated: () => void) => {
             ws.close();
             wsRef.current = null;
         };
-    }, [roomId]);
+    }, [roomId, onStreamUpdated, onCurrentStreamChanged]);
 
     // Call this after any mutation (add song, upvote, downvote)
     const notifyStreamUpdate = useCallback(() => {
@@ -50,5 +56,12 @@ export const useRoomSocket = (roomId: string, onStreamUpdated: () => void) => {
         }
     }, []);
 
-    return { notifyStreamUpdate };
+    const setRoomCurrentStream = useCallback((streamId: string) => {
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "set-current-stream", streamId }));
+        }
+    }, []);
+
+    return { notifyStreamUpdate, setRoomCurrentStream };
 };
