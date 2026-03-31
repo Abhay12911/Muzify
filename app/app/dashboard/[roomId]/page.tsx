@@ -14,5 +14,5 @@ export default async function RoomPage({
     redirect("/");
   }
 
-  return <RoomClient roomId={roomId} userId={session.user.id} />;
+  return <RoomClient roomId={roomId} userId={session.user.id} userName={session.user.name ?? "Someone"} />;
 }

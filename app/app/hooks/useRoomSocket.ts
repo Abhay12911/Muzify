@@ -1,13 +1,18 @@
-// useRef is used instead of useState because changing a ref doesn't trigger a re-render. You don't want the component to re-render every time the WebSocket object changes internally.
-
 import { useEffect, useRef, useCallback } from "react";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+const WS_URL =
+    process.env.NEXT_PUBLIC_WS_URL ||
+    (process.env.NODE_ENV === "production"
+        ? "wss://muzify-ws.onrender.com"
+        : "ws://localhost:8080");
 
 export const useRoomSocket = (
     roomId: string,
+    userName: string,
     onStreamUpdated: () => void,
-    onCurrentStreamChanged: (streamId: string) => void
+    onCurrentStreamChanged: (streamId: string) => void,
+    onUserJoined: (userName: string) => void,
+    onCountChanged: (count: number) => void
 ) => {
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -18,16 +23,21 @@ export const useRoomSocket = (
         wsRef.current = ws;
 
         ws.onopen = () => {
-            ws.send(JSON.stringify({ type: "join-room", roomId }));
+            ws.send(JSON.stringify({ type: "join-room", roomId, userName }));
         };
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 if (data.type === "stream-updated") {
-                    onStreamUpdated(); // this will be fetchStreams()
+                    onStreamUpdated();
                 } else if (data.type === "current-stream" && data.streamId) {
                     onCurrentStreamChanged(data.streamId);
+                } else if (data.type === "user-joined" && data.userName) {
+                    onUserJoined(data.userName);
+                    onCountChanged(data.count);
+                } else if (data.type === "room-count") {
+                    onCountChanged(data.count);
                 }
             } catch {
                 // ignore non-JSON messages
@@ -46,9 +56,8 @@ export const useRoomSocket = (
             ws.close();
             wsRef.current = null;
         };
-    }, [roomId, onStreamUpdated, onCurrentStreamChanged]);
+    }, [roomId, userName]);
 
-    // Call this after any mutation (add song, upvote, downvote)
     const notifyStreamUpdate = useCallback(() => {
         const ws = wsRef.current;
         if (ws && ws.readyState === WebSocket.OPEN) {

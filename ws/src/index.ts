@@ -7,30 +7,40 @@ const port = process.env.PORT || 8080;
 
 const rooms = new Map<string, Set<WebSocket>>();
 const socketToRoom = new Map<WebSocket, string>();
+const socketToName = new Map<WebSocket, string>();
 const roomToCurrentStream = new Map<string, string>();
 
-//excludes? -> excludes the sender to hear its own message
-function broadcaseToRoom(roomId: string, message: string, excludesWs?: WebSocket) {
+function broadcastToRoom(roomId: string, message: string, excludeWs?: WebSocket) {
     const roomSockets = rooms.get(roomId);
     if (!roomSockets) return;
-
     roomSockets.forEach((client) => {
-        if (client !== excludesWs && client.readyState === WebSocket.OPEN) {
+        if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
             client.send(message);
         }
-    })
+    });
+}
+
+function broadcastToAll(roomId: string, message: string) {
+    const roomSockets = rooms.get(roomId);
+    if (!roomSockets) return;
+    roomSockets.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message);
+        }
+    });
 }
 
 function removeFromRoom(ws: WebSocket) {
     const roomId = socketToRoom.get(ws);
     if (!roomId) return;
-    if (rooms.has(roomId)) {
-        const roomSocket = rooms.get(roomId);
-        if (roomSocket) {
-            roomSocket.delete(ws);
-        }
+    const roomSocket = rooms.get(roomId);
+    if (roomSocket) {
+        roomSocket.delete(ws);
+        const count = roomSocket.size;
+        broadcastToAll(roomId, JSON.stringify({ type: "room-count", count }));
     }
     socketToRoom.delete(ws);
+    socketToName.delete(ws);
 }
 
 wss.on("connection", (ws: WebSocket) => {
@@ -39,18 +49,35 @@ wss.on("connection", (ws: WebSocket) => {
     ws.on("message", (raw) => {
         try {
             const message = JSON.parse(raw.toString());
+
             if (message.type === "join-room") {
-                const { roomId } = message;
+                const { roomId, userName } = message;
                 if (!roomId) return;
+
                 removeFromRoom(ws);
+
                 if (!rooms.has(roomId)) {
                     rooms.set(roomId, new Set());
                 }
 
                 rooms.get(roomId)?.add(ws);
                 socketToRoom.set(ws, roomId);
-                ws.send(JSON.stringify({ type: "joined-room", roomId }));
+                socketToName.set(ws, userName || "Someone");
 
+                const count = rooms.get(roomId)?.size ?? 1;
+
+                // Send joined confirmation + current count to the new joiner
+                ws.send(JSON.stringify({ type: "joined-room", roomId }));
+                ws.send(JSON.stringify({ type: "room-count", count }));
+
+                // Notify others that someone joined
+                broadcastToRoom(roomId, JSON.stringify({
+                    type: "user-joined",
+                    userName: userName || "Someone",
+                    count,
+                }), ws);
+
+                // Send current stream to new joiner if exists
                 const currentStreamId = roomToCurrentStream.get(roomId);
                 if (currentStreamId) {
                     ws.send(JSON.stringify({ type: "current-stream", streamId: currentStreamId }));
@@ -59,15 +86,14 @@ wss.on("connection", (ws: WebSocket) => {
             else if (message.type === "stream-updated") {
                 const roomId = socketToRoom.get(ws);
                 if (!roomId) return;
-                broadcaseToRoom(roomId, JSON.stringify({ type: "stream-updated" }), ws);
+                broadcastToRoom(roomId, JSON.stringify({ type: "stream-updated" }), ws);
             }
             else if (message.type === "set-current-stream") {
                 const roomId = socketToRoom.get(ws);
                 const { streamId } = message;
                 if (!roomId || !streamId) return;
-
                 roomToCurrentStream.set(roomId, streamId);
-                broadcaseToRoom(roomId, JSON.stringify({ type: "current-stream", streamId }));
+                broadcastToRoom(roomId, JSON.stringify({ type: "current-stream", streamId }));
             }
         } catch (err) {
             console.error("Failed to parse message", err);

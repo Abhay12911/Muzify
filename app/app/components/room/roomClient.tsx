@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Users } from "lucide-react";
 import { Appbar } from "../Appbar";
 import { useRouter } from "next/navigation";
 import { useRoomSocket } from "@/app/hooks/useRoomSocket";
@@ -10,13 +10,16 @@ import type { Stream } from "./types";
 import NowPlaying from "./NowPlaying";
 import AddSongForm from "./AddSongForm";
 import QueueList from "./QueueList";
+import { toast } from "sonner";
 
 export default function RoomClient({
   roomId,
   userId,
+  userName,
 }: {
   roomId: string;
   userId: string;
+  userName: string;
 }) {
   const router = useRouter();
   const [streams, setStreams] = useState<Stream[]>([]);
@@ -25,6 +28,7 @@ export default function RoomClient({
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [onlineCount, setOnlineCount] = useState(1);
 
   const fetchStreams = useCallback(async () => {
     try {
@@ -39,10 +43,17 @@ export default function RoomClient({
     }
   }, [roomId]);
 
+  const handleUserJoined = useCallback((name: string) => {
+    toast(`${name} joined the room 🎵`);
+  }, []);
+
   const { notifyStreamUpdate, setRoomCurrentStream } = useRoomSocket(
     roomId,
+    userName,
     fetchStreams,
-    setCurrentStreamId
+    setCurrentStreamId,
+    handleUserJoined,
+    setOnlineCount
   );
 
   useEffect(() => {
@@ -148,15 +159,25 @@ export default function RoomClient({
       <Appbar />
 
       <main className="mx-auto max-w-7xl px-4 pt-24 pb-16 sm:px-6">
-        <motion.button
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => router.push("/home")}
-          className="mb-6 flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to rooms
-        </motion.button>
+        <div className="mb-6 flex items-center justify-between">
+          <motion.button
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => router.push("/home")}
+            className="flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to rooms
+          </motion.button>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 rounded-full bg-gray-800 px-3 py-1.5 text-sm text-gray-300"
+          >
+            <Users className="h-4 w-4 text-purple-400" />
+            <span>{onlineCount} online</span>
+          </motion.div>
+        </div>
 
         {loading ? (
           <div className="flex min-h-[60vh] items-center justify-center">
