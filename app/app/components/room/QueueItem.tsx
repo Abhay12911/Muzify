@@ -37,11 +37,11 @@ export default function QueueItem({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.05 * index }}
-      className="group flex items-center gap-3 rounded-xl border border-transparent bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.06]"
+      className="group flex flex-wrap items-center gap-2 rounded-xl border border-transparent bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.06] sm:flex-nowrap sm:gap-3"
     >
       {/* Thumbnail */}
       <div
-        className="relative h-14 w-20 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-gray-800"
+        className="relative h-12 w-16 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-gray-800 sm:h-14 sm:w-20"
         onClick={() => onPlay(stream)}
       >
         <img
@@ -67,7 +67,7 @@ export default function QueueItem({
       {/* Vote button */}
       <button
         onClick={() => isUpvoted ? onDownvote(stream.id) : onUpvote(stream.id)}
-        className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        className={`ml-auto flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors sm:ml-0 sm:gap-1.5 sm:px-2.5 ${
           isUpvoted
             ? "bg-purple-500/20 text-purple-300"
             : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"

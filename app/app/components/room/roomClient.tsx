@@ -299,9 +299,9 @@ export default function RoomClient({
             <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
             {/* Left column */}
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <NowPlaying
                 currentStream={currentStream}
                 queueLength={queue.length}
@@ -324,7 +324,7 @@ export default function RoomClient({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="rounded-2xl border border-white/10 bg-white/5 lg:self-start flex flex-col"
+              className="min-w-0 w-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 flex flex-col lg:self-start"
             >
               {/* Tab headers */}
               <div className="flex border-b border-white/10">

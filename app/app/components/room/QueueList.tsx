@@ -27,7 +27,7 @@ export default function QueueList({
     stream.upvotes.some((u) => u.userId === userId);
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="border-b border-white/10 px-5 py-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
           <Users className="h-4 w-4 text-purple-400" />

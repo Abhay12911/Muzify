@@ -33,11 +33,11 @@ export default function ChatPanel({ messages, onSend }: ChatPanelProps) {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Message list — flex-1 so it fills available space, overflow-y to scroll */}
-      <div className="flex-1 overflow-y-auto space-y-3 p-3 max-h-64 lg:max-h-[calc(100vh-300px)]">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden">
+      {/* Message list — explicit min/max heights so it shows on mobile without needing a parent height */}
+      <div className="overflow-y-auto space-y-3 p-3 min-h-[200px] max-h-64 lg:max-h-[calc(100vh-300px)]">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center py-16 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <p className="text-sm">No messages yet.</p>
             <p className="mt-1 text-xs text-gray-600">Say hi! 👋</p>
           </div>
@@ -68,7 +68,7 @@ export default function ChatPanel({ messages, onSend }: ChatPanelProps) {
       </div>
 
       {/* Input row */}
-      <div className="border-t border-white/10 p-3 flex gap-2">
+        <div className="border-t border-white/10 p-3 flex gap-2 overflow-x-hidden">
         <input
           type="text"
           value={text}

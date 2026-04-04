@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SkipForward, Music } from "lucide-react";
-import YouTubePlayer from "youtube-player";
 import type { Stream } from "./types";
 
 const REACTIONS = ["❤️", "🔥", "🎵", "😂", "👏", "🤩"];
@@ -11,7 +10,7 @@ const REACTIONS = ["❤️", "🔥", "🎵", "😂", "👏", "🤩"];
 type FloatingReaction = {
   id: string;
   emoji: string;
-  x: number; // % from left — randomised so reactions don't stack on each other
+  x: number;
 };
 
 interface NowPlayingProps {
@@ -31,48 +30,23 @@ export default function NowPlaying({
   onPlayNext,
   onSendReaction,
 }: NowPlayingProps) {
-  const playerContainerRef = useRef<HTMLDivElement | null>(null);
-  const playerRef = useRef<any>(null);
-  const activeVideoIdRef = useRef<string | null>(null);
-
+  // YouTube posts a postMessage when the player state changes.
+  // State 0 = ended — trigger auto-advance.
   useEffect(() => {
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://www.youtube.com") return;
+      try {
+        const data = JSON.parse(event.data as string);
+        if (data.event === "onStateChange" && data.info === 0) {
+          onPlayNext();
+        }
+      } catch {
+        // ignore non-JSON messages
       }
     };
-  }, []);
-
-  useEffect(() => {
-    if (!currentStream || !playerContainerRef.current) return;
-
-    const nextVideoId = currentStream.extractedId;
-
-    const initOrLoadPlayer = async () => {
-      if (!playerRef.current) {
-        const player = YouTubePlayer(playerContainerRef.current!, {
-          videoId: nextVideoId,
-          playerVars: { autoplay: 1, rel: 0 },
-        });
-
-        player.on("stateChange", (event: { data: number }) => {
-          if (event.data === 0) onPlayNext(); // 0 = video ended
-        });
-
-        playerRef.current = player;
-        activeVideoIdRef.current = nextVideoId;
-        return;
-      }
-
-      if (activeVideoIdRef.current !== nextVideoId) {
-        activeVideoIdRef.current = nextVideoId;
-        await playerRef.current.loadVideoById(nextVideoId);
-      }
-    };
-
-    initOrLoadPlayer();
-  }, [currentStream, onPlayNext]);
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [onPlayNext]);
 
   return (
     <motion.div
@@ -82,11 +56,25 @@ export default function NowPlaying({
     >
       {currentStream ? (
         <>
-          {/* Video + floating reactions overlay */}
-          <div className="relative aspect-video w-full bg-black overflow-hidden">
-            <div ref={playerContainerRef} className="absolute inset-0 h-full w-full [&>iframe]:!w-full [&>iframe]:!h-full" />
+          {/*
+           * 16:9 responsive container.
+           * padding-bottom: 56.25% = 9/16 of the element's own width,
+           * giving a perfect 16:9 box on every screen size.
+           * The iframe is absolutely positioned to fill it completely.
+           * key={extractedId} makes React swap the iframe when the song
+           * changes — no external player library needed.
+           */}
+          <div className="relative aspect-video w-full max-w-full bg-black">
+            <iframe
+              key={currentStream.extractedId}
+              src={`https://www.youtube.com/embed/${currentStream.extractedId}?autoplay=1&rel=0&enablejsapi=1`}
+              className="absolute inset-0 h-full w-full"
+              style={{ border: 0 }}
+              allow="autoplay; fullscreen; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
 
-            {/* Floating emoji reactions animate upward over the video */}
+            {/* Floating emoji reactions */}
             <AnimatePresence>
               {floatingReactions.map((r) => (
                 <motion.span
@@ -95,7 +83,6 @@ export default function NowPlaying({
                   animate={{ y: -120, opacity: 0, scale: 1.4 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 2, ease: "easeOut" }}
-                  // left is randomised per reaction so they don't all stack
                   style={{ left: `${r.x}%` }}
                   className="pointer-events-none absolute bottom-6 text-3xl"
                 >
@@ -105,7 +92,7 @@ export default function NowPlaying({
             </AnimatePresence>
           </div>
 
-          {/* Title row + skip button (host only) */}
+          {/* Title + skip */}
           <div className="flex items-center justify-between gap-3 p-4">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-purple-400">
@@ -127,9 +114,9 @@ export default function NowPlaying({
             )}
           </div>
 
-          {/* Reaction strip — visible to everyone */}
+          {/* Reaction strip */}
           <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
-            <span className="text-xs text-gray-500 mr-1">React:</span>
+            <span className="mr-1 text-xs text-gray-500">React:</span>
             {REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -143,7 +130,7 @@ export default function NowPlaying({
           </div>
         </>
       ) : (
-        <div className="flex aspect-video flex-col items-center justify-center gap-3 text-gray-500">
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-500">
           <Music className="h-12 w-12" />
           <p>No songs yet. Add one below!</p>
         </div>
