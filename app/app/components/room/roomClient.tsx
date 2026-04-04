@@ -246,10 +246,10 @@ export default function RoomClient({
 
   // ── render ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
       <Appbar />
 
-      <main className="mx-auto max-w-7xl px-4 pt-24 pb-16 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 pt-20 pb-16 sm:px-6 sm:pt-24">
         {/* Top bar */}
         <div className="mb-6 flex items-center justify-between">
           <motion.button

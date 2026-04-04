@@ -83,8 +83,8 @@ export default function NowPlaying({
       {currentStream ? (
         <>
           {/* Video + floating reactions overlay */}
-          <div className="relative aspect-video w-full bg-black">
-            <div ref={playerContainerRef} className="absolute inset-0 h-full w-full" />
+          <div className="relative aspect-video w-full bg-black overflow-hidden">
+            <div ref={playerContainerRef} className="absolute inset-0 h-full w-full [&>iframe]:!w-full [&>iframe]:!h-full" />
 
             {/* Floating emoji reactions animate upward over the video */}
             <AnimatePresence>
@@ -106,7 +106,7 @@ export default function NowPlaying({
           </div>
 
           {/* Title row + skip button (host only) */}
-          <div className="flex items-center justify-between p-4">
+          <div className="flex items-center justify-between gap-3 p-4">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-purple-400">
                 Now Playing
@@ -119,7 +119,7 @@ export default function NowPlaying({
               <button
                 onClick={onPlayNext}
                 disabled={queueLength === 0}
-                className="ml-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium transition-colors hover:border-purple-500/30 hover:bg-white/10 disabled:opacity-30"
+                className="ml-2 flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition-colors hover:border-purple-500/30 hover:bg-white/10 disabled:opacity-30 sm:px-4"
               >
                 <SkipForward className="h-4 w-4" />
                 Skip
@@ -128,7 +128,7 @@ export default function NowPlaying({
           </div>
 
           {/* Reaction strip — visible to everyone */}
-          <div className="flex items-center gap-2 border-t border-white/5 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-4 py-3">
             <span className="text-xs text-gray-500 mr-1">React:</span>
             {REACTIONS.map((emoji) => (
               <button

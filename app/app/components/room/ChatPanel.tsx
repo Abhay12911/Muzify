@@ -35,7 +35,7 @@ export default function ChatPanel({ messages, onSend }: ChatPanelProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Message list — flex-1 so it fills available space, overflow-y to scroll */}
-      <div className="flex-1 overflow-y-auto space-y-3 p-3 max-h-[calc(100vh-300px)]">
+      <div className="flex-1 overflow-y-auto space-y-3 p-3 max-h-64 lg:max-h-[calc(100vh-300px)]">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-16 text-gray-500">
             <p className="text-sm">No messages yet.</p>
