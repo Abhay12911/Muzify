@@ -30,17 +30,23 @@ function broadcastToAll(roomId: string, message: string) {
     });
 }
 
+function getRoomMembers(roomId: string): string[] {
+    const roomSockets = rooms.get(roomId);
+    if (!roomSockets) return [];
+    return Array.from(roomSockets).map(ws => socketToName.get(ws) ?? "Someone");
+}
+
 function removeFromRoom(ws: WebSocket) {
     const roomId = socketToRoom.get(ws);
     if (!roomId) return;
+    socketToName.delete(ws);
     const roomSocket = rooms.get(roomId);
     if (roomSocket) {
         roomSocket.delete(ws);
-        const count = roomSocket.size;
-        broadcastToAll(roomId, JSON.stringify({ type: "room-count", count }));
+        const members = getRoomMembers(roomId);
+        broadcastToAll(roomId, JSON.stringify({ type: "room-members", members, count: members.length }));
     }
     socketToRoom.delete(ws);
-    socketToName.delete(ws);
 }
 
 wss.on("connection", (ws: WebSocket) => {
@@ -64,17 +70,18 @@ wss.on("connection", (ws: WebSocket) => {
                 socketToRoom.set(ws, roomId);
                 socketToName.set(ws, userName || "Someone");
 
-                const count = rooms.get(roomId)?.size ?? 1;
+                const members = getRoomMembers(roomId);
 
-                // Send joined confirmation + current count to the new joiner
+                // Send joined confirmation + full members list to the new joiner
                 ws.send(JSON.stringify({ type: "joined-room", roomId }));
-                ws.send(JSON.stringify({ type: "room-count", count }));
+                ws.send(JSON.stringify({ type: "room-members", members, count: members.length }));
 
-                // Notify others that someone joined
+                // Notify others that someone joined + send updated members list
                 broadcastToRoom(roomId, JSON.stringify({
                     type: "user-joined",
                     userName: userName || "Someone",
-                    count,
+                    members,
+                    count: members.length,
                 }), ws);
 
                 // Send current stream to new joiner if exists

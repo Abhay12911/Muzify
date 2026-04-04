@@ -80,8 +80,14 @@ export const authOptions: NextAuthOptions = {
           await prismaClient.user.create({
             data: {
               email: user.email,
+              name: user.name ?? null,
               provider: "Google",
             },
+          });
+        } else if (!existingUser.name && user.name) {
+          await prismaClient.user.update({
+            where: { email: user.email },
+            data: { name: user.name },
           });
         }
       }
@@ -95,6 +101,7 @@ export const authOptions: NextAuthOptions = {
         });
         if (dbUser) {
           session.user.id = dbUser.id;
+          session.user.name = dbUser.name ?? session.user.name;
         }
       }
       return session;

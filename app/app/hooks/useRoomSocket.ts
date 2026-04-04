@@ -12,7 +12,7 @@ export const useRoomSocket = (
     onStreamUpdated: () => void,
     onCurrentStreamChanged: (streamId: string) => void,
     onUserJoined: (userName: string) => void,
-    onCountChanged: (count: number) => void
+    onMembersChanged: (members: string[], count: number) => void
 ) => {
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -33,11 +33,11 @@ export const useRoomSocket = (
                     onStreamUpdated();
                 } else if (data.type === "current-stream" && data.streamId) {
                     onCurrentStreamChanged(data.streamId);
-                } else if (data.type === "user-joined" && data.userName) {
+                } else if (data.type === "user-joined") {
                     onUserJoined(data.userName);
-                    onCountChanged(data.count);
-                } else if (data.type === "room-count") {
-                    onCountChanged(data.count);
+                    onMembersChanged(data.members ?? [], data.count ?? 0);
+                } else if (data.type === "room-members") {
+                    onMembersChanged(data.members ?? [], data.count ?? 0);
                 }
             } catch {
                 // ignore non-JSON messages

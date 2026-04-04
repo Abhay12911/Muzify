@@ -29,6 +29,8 @@ export default function RoomClient({
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [onlineCount, setOnlineCount] = useState(1);
+  const [members, setMembers] = useState<string[]>([]);
+  const [showMembers, setShowMembers] = useState(false);
 
   const fetchStreams = useCallback(async () => {
     try {
@@ -47,13 +49,18 @@ export default function RoomClient({
     toast(`${name} joined the room 🎵`);
   }, []);
 
+  const handleMembersChanged = useCallback((updatedMembers: string[], count: number) => {
+    setMembers(updatedMembers);
+    setOnlineCount(count);
+  }, []);
+
   const { notifyStreamUpdate, setRoomCurrentStream } = useRoomSocket(
     roomId,
     userName,
     fetchStreams,
     setCurrentStreamId,
     handleUserJoined,
-    setOnlineCount
+    handleMembersChanged
   );
 
   useEffect(() => {
@@ -169,14 +176,35 @@ export default function RoomClient({
             <ArrowLeft className="h-4 w-4" />
             Back to rooms
           </motion.button>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-2 rounded-full bg-gray-800 px-3 py-1.5 text-sm text-gray-300"
-          >
-            <Users className="h-4 w-4 text-purple-400" />
-            <span>{onlineCount} online</span>
-          </motion.div>
+          <div className="relative">
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => setShowMembers((v) => !v)}
+              className="flex items-center gap-2 rounded-full bg-gray-800 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 transition-colors"
+            >
+              <Users className="h-4 w-4 text-purple-400" />
+              <span>{onlineCount} online</span>
+            </motion.button>
+            {showMembers && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute right-0 top-10 z-50 min-w-[160px] rounded-xl border border-gray-700 bg-gray-900 p-2 shadow-xl"
+              >
+                {members.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-gray-500">No one here yet</p>
+                ) : (
+                  members.map((name, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-300">
+                      <div className="h-2 w-2 rounded-full bg-green-400" />
+                      {name}
+                    </div>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </div>
         </div>
 
         {loading ? (
