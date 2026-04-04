@@ -102,6 +102,38 @@ wss.on("connection", (ws: WebSocket) => {
                 roomToCurrentStream.set(roomId, streamId);
                 broadcastToRoom(roomId, JSON.stringify({ type: "current-stream", streamId }));
             }
+            else if (message.type === "chat-message") {
+                // A user sent a chat message. We look up their name from the socket map
+                // (no need to trust the client to send their own name — we already stored it on join)
+                const roomId = socketToRoom.get(ws);
+                const { text } = message;
+                if (!roomId || !text?.trim()) return;
+
+                const userName = socketToName.get(ws) ?? "Someone";
+
+                // Broadcast to EVERYONE in the room including the sender
+                // so the sender sees their own message appear
+                broadcastToAll(roomId, JSON.stringify({
+                    type: "chat-message",
+                    userName,
+                    text: text.trim(),
+                    timestamp: Date.now(), // ms since epoch — client formats it
+                }));
+            }
+            else if (message.type === "reaction") {
+                // A user sent an emoji reaction (e.g. "❤️")
+                const roomId = socketToRoom.get(ws);
+                const { emoji } = message;
+                if (!roomId || !emoji) return;
+
+                // Broadcast to ALL — reactions are shown as floating overlays for everyone
+                broadcastToAll(roomId, JSON.stringify({
+                    type: "reaction",
+                    emoji,
+                    // random id so React can key the animated element uniquely
+                    id: Math.random().toString(36).slice(2),
+                }));
+            }
         } catch (err) {
             console.error("Failed to parse message", err);
         }

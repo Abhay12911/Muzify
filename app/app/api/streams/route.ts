@@ -13,6 +13,9 @@ import { prismaClient } from "@/app/lib/db";
 const CreateStreamSchema = z.object({
   url: z.string(),
   roomId: z.string(),
+  // title is optional — sent when adding from search results (already known)
+  // if missing, we try to fetch it from YouTube; if that fails, we store ""
+  title: z.string().optional(),
 });
 
 const MAX_QUEUE_LEN = 20;
@@ -79,12 +82,25 @@ export async function POST(req: NextRequest) {
 
     const extractedId = videoId;
 
+    // Use title from the request body (set by search results) so we avoid a
+    // second YouTube API call. If not provided (direct URL paste), try fetching it.
+    let title = data.title ?? "";
+    if (!title) {
+      try {
+        const details = await youtubesearchapi.GetVideoDetails(extractedId);
+        title = details?.title ?? "";
+      } catch {
+        // title stays "" — not a hard failure, video still plays
+      }
+    }
+
     const stream = await prismaClient.stream.create({
       data: {
         userId: session.user.id,
         roomId: data.roomId,
         url: data.url,
         extractedId,
+        title,
         type: "Youtube",
       },
     });

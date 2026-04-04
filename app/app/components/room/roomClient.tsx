@@ -5,18 +5,21 @@ import { motion } from "framer-motion";
 import { Loader2, ArrowLeft, Users } from "lucide-react";
 import { Appbar } from "../Appbar";
 import { useRouter } from "next/navigation";
-import { useRoomSocket } from "@/app/hooks/useRoomSocket";
+import { useRoomSocket, type ChatMessage } from "@/app/hooks/useRoomSocket";
 import type { Stream } from "./types";
 import NowPlaying from "./NowPlaying";
 import AddSongForm from "./AddSongForm";
 import QueueList from "./QueueList";
+import ChatPanel from "./ChatPanel";
 import { toast } from "sonner";
+
+type FloatingReaction = { id: string; emoji: string; x: number };
 
 export default function RoomClient({
   roomId,
   userId,
   userName,
-  isHost,  // true if this user created the room — passed from the server component
+  isHost,
 }: {
   roomId: string;
   userId: string;
@@ -24,20 +27,32 @@ export default function RoomClient({
   isHost: boolean;
 }) {
   const router = useRouter();
+
+  // ── music queue state ────────────────────────────────────────────────────
   const [streams, setStreams] = useState<Stream[]>([]);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
-  const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+
+  // ── presence state ───────────────────────────────────────────────────────
   const [onlineCount, setOnlineCount] = useState(1);
   const [members, setMembers] = useState<string[]>([]);
   const [showMembers, setShowMembers] = useState(false);
 
+  // ── chat state ───────────────────────────────────────────────────────────
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeTab, setActiveTab] = useState<"queue" | "chat">("queue");
+
+  // ── reaction state ───────────────────────────────────────────────────────
+  // Each entry animates for 2s then is removed
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+
+  // ── data fetching ────────────────────────────────────────────────────────
   const fetchStreams = useCallback(async () => {
     try {
       const res = await fetch(`/api/room/${roomId}/streams`);
-      if (!res.ok) throw new Error("Failed to fetch streams");
+      if (!res.ok) throw new Error();
       const data: Stream[] = await res.json();
       setStreams(data);
     } catch {
@@ -47,40 +62,66 @@ export default function RoomClient({
     }
   }, [roomId]);
 
+  // ── WS callbacks ─────────────────────────────────────────────────────────
   const handleUserJoined = useCallback((name: string) => {
     toast(`${name} joined the room 🎵`);
   }, []);
 
-  const handleMembersChanged = useCallback((updatedMembers: string[], count: number) => {
-    setMembers(updatedMembers);
+  const handleMembersChanged = useCallback((m: string[], count: number) => {
+    setMembers(m);
     setOnlineCount(count);
   }, []);
 
-  const { notifyStreamUpdate, setRoomCurrentStream } = useRoomSocket(
-    roomId,
-    userName,
-    fetchStreams,
-    setCurrentStreamId,
-    handleUserJoined,
-    handleMembersChanged
-  );
+  const handleChatMessage = useCallback((msg: ChatMessage) => {
+    // Append incoming chat message to the list
+    // Using functional updater so we always append to the latest state
+    setMessages((prev) => [...prev, msg]);
+    // If the chat tab is hidden, nudge the user
+    setActiveTab((prev) => {
+      if (prev !== "chat") toast("💬 New message");
+      return prev;
+    });
+  }, []);
 
+  const handleReaction = useCallback((emoji: string, id: string) => {
+    // x is randomised so reactions spread across the video instead of stacking
+    const x = Math.random() * 70 + 10; // 10%–80% from left
+    const reaction = { id, emoji, x };
+
+    setFloatingReactions((prev) => [...prev, reaction]);
+
+    // Remove this specific reaction after 2.5s (matches the animation duration)
+    setTimeout(() => {
+      setFloatingReactions((prev) => prev.filter((r) => r.id !== id));
+    }, 2500);
+  }, []);
+
+  // ── WebSocket hook ───────────────────────────────────────────────────────
+  const { notifyStreamUpdate, setRoomCurrentStream, sendChat, sendReaction } =
+    useRoomSocket(
+      roomId,
+      userName,
+      fetchStreams,
+      setCurrentStreamId,
+      handleUserJoined,
+      handleMembersChanged,
+      handleChatMessage,
+      handleReaction
+    );
+
+  // ── queue auto-select logic ──────────────────────────────────────────────
   useEffect(() => {
-    if (streams.length === 0) {
-      setCurrentStreamId(null);
-      return;
-    }
+    if (streams.length === 0) { setCurrentStreamId(null); return; }
     if (!currentStreamId) {
-      const fallbackId = streams[0].id;
-      setCurrentStreamId(fallbackId);
-      setRoomCurrentStream(fallbackId);
+      const id = streams[0].id;
+      setCurrentStreamId(id);
+      setRoomCurrentStream(id);
       return;
     }
-    const exists = streams.some((s) => s.id === currentStreamId);
-    if (!exists) {
-      const fallbackId = streams[0].id;
-      setCurrentStreamId(fallbackId);
-      setRoomCurrentStream(fallbackId);
+    if (!streams.some((s) => s.id === currentStreamId)) {
+      const id = streams[0].id;
+      setCurrentStreamId(id);
+      setRoomCurrentStream(id);
     }
   }, [streams, currentStreamId, setRoomCurrentStream]);
 
@@ -90,19 +131,18 @@ export default function RoomClient({
     return () => clearInterval(interval);
   }, [roomId]);
 
-  const handleAddSong = async () => {
-    if (!url.trim()) return;
+  // ── song actions ─────────────────────────────────────────────────────────
+  const handleAddSong = useCallback(async (url: string) => {
     setAdding(true);
     setError("");
     try {
       const res = await fetch("/api/streams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), roomId }),
+        body: JSON.stringify({ url, roomId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      setUrl("");
       await fetchStreams();
       notifyStreamUpdate();
     } catch (err: unknown) {
@@ -110,9 +150,35 @@ export default function RoomClient({
     } finally {
       setAdding(false);
     }
-  };
+  }, [roomId, fetchStreams, notifyStreamUpdate]);
 
-  const handleUpvote = async (streamId: string) => {
+  // Called when a search result is picked — title is already known, no re-fetch needed
+  const handleAddByVideoId = useCallback(async (videoId: string, title: string) => {
+    setAdding(true);
+    setError("");
+    try {
+      const res = await fetch("/api/streams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Construct a valid YouTube URL so the existing POST endpoint accepts it
+        body: JSON.stringify({
+          url: `https://youtube.com/watch?v=${videoId}`,
+          roomId,
+          title, // pass the title we already have from search results
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      await fetchStreams();
+      notifyStreamUpdate();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add song");
+    } finally {
+      setAdding(false);
+    }
+  }, [roomId, fetchStreams, notifyStreamUpdate]);
+
+  const handleUpvote = useCallback(async (streamId: string) => {
     try {
       await fetch("/api/streams/upvote", {
         method: "POST",
@@ -121,12 +187,10 @@ export default function RoomClient({
       });
       await fetchStreams();
       notifyStreamUpdate();
-    } catch {
-      // silently handle
-    }
-  };
+    } catch { /* silently handle */ }
+  }, [fetchStreams, notifyStreamUpdate]);
 
-  const handleDownvote = async (streamId: string) => {
+  const handleDownvote = useCallback(async (streamId: string) => {
     try {
       await fetch("/api/streams/downvote", {
         method: "POST",
@@ -135,80 +199,58 @@ export default function RoomClient({
       });
       await fetchStreams();
       notifyStreamUpdate();
-    } catch {
-      // silently handle
-    }
-  };
+    } catch { /* silently handle */ }
+  }, [fetchStreams, notifyStreamUpdate]);
 
-  // Deletes the given stream from DB, then advances to the next most-upvoted song.
-  // Called by: (1) skip button (host only), (2) YouTube player ended event (all clients).
-  // The DELETE is idempotent — the first client to call it wins, the rest silently get 404.
   const handlePlayNext = useCallback(async () => {
-    // streams are already sorted by upvotes desc from the API
-    // so the first stream that isn't the current one IS the most upvoted next song
     const next = streams.find((s) => s.id !== currentStreamId);
-
-    // Delete the finished/skipped song so it doesn't reappear in the queue
     if (currentStreamId) {
       await fetch(`/api/streams/remove?streamId=${currentStreamId}`, {
         method: "DELETE",
-      }).catch(() => {}); // swallow errors — another client may have already deleted it
+      }).catch(() => {});
     }
-
     if (!next) {
-      // Queue is empty after deletion — clear the player
       setCurrentStreamId(null);
       await fetchStreams();
       notifyStreamUpdate();
       return;
     }
-
     setCurrentStreamId(next.id);
-    setRoomCurrentStream(next.id);   // broadcasts to all clients via WS
+    setRoomCurrentStream(next.id);
     await fetchStreams();
     notifyStreamUpdate();
   }, [streams, currentStreamId, setRoomCurrentStream, fetchStreams, notifyStreamUpdate]);
 
-  // Removes a song from the queue without advancing the player.
-  // Host can remove anyone's song; regular users can only remove their own.
   const handleRemoveSong = useCallback(async (streamId: string) => {
     try {
-      const res = await fetch(`/api/streams/remove?streamId=${streamId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.message || "Could not remove song");
-        return;
-      }
+      const res = await fetch(`/api/streams/remove?streamId=${streamId}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Could not remove song"); return; }
       await fetchStreams();
       notifyStreamUpdate();
-    } catch {
-      toast.error("Failed to remove song");
-    }
+    } catch { toast.error("Failed to remove song"); }
   }, [fetchStreams, notifyStreamUpdate]);
 
-  // Manually play a specific song from the queue (clicking thumbnail)
-  // Does NOT delete anything — just changes the active player
   const handlePlay = useCallback((stream: Stream) => {
     setCurrentStreamId(stream.id);
     setRoomCurrentStream(stream.id);
   }, [setRoomCurrentStream]);
 
+  // ── derived state ────────────────────────────────────────────────────────
   const currentStream = useMemo(
     () => streams.find((s) => s.id === currentStreamId) ?? null,
     [streams, currentStreamId]
   );
-
   const queue = currentStream
     ? streams.filter((s) => s.id !== currentStream.id)
     : streams;
 
+  // ── render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
       <Appbar />
 
       <main className="mx-auto max-w-7xl px-4 pt-24 pb-16 sm:px-6">
+        {/* Top bar */}
         <div className="mb-6 flex items-center justify-between">
           <motion.button
             initial={{ opacity: 0, x: -10 }}
@@ -219,6 +261,8 @@ export default function RoomClient({
             <ArrowLeft className="h-4 w-4" />
             Back to rooms
           </motion.button>
+
+          {/* Online count pill */}
           <div className="relative">
             <motion.button
               initial={{ opacity: 0 }}
@@ -256,32 +300,64 @@ export default function RoomClient({
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+            {/* Left column */}
             <div className="space-y-6">
               <NowPlaying
                 currentStream={currentStream}
                 queueLength={queue.length}
-                isHost={isHost}         // controls whether skip button is visible
+                isHost={isHost}
+                floatingReactions={floatingReactions}
                 onPlayNext={handlePlayNext}
+                onSendReaction={sendReaction}
               />
               <AddSongForm
-                url={url}
-                setUrl={setUrl}
                 adding={adding}
                 error={error}
                 setError={setError}
                 onAdd={handleAddSong}
+                onAddByVideoId={handleAddByVideoId}
               />
             </div>
 
-            <QueueList
-              queue={queue}
-              userId={userId}
-              isHost={isHost}           // controls whether remove button shows on others' songs
-              onPlay={handlePlay}
-              onUpvote={handleUpvote}
-              onDownvote={handleDownvote}
-              onRemove={handleRemoveSong}
-            />
+            {/* Right column — Queue / Chat tabs */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="rounded-2xl border border-white/10 bg-white/5 lg:self-start flex flex-col"
+            >
+              {/* Tab headers */}
+              <div className="flex border-b border-white/10">
+                {(["queue", "chat"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
+                      activeTab === tab
+                        ? "text-purple-400 border-b-2 border-purple-400 -mb-px"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    {tab === "queue" ? `Queue (${queue.length})` : "Chat"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              {activeTab === "queue" ? (
+                <QueueList
+                  queue={queue}
+                  userId={userId}
+                  isHost={isHost}
+                  onPlay={handlePlay}
+                  onUpvote={handleUpvote}
+                  onDownvote={handleDownvote}
+                  onRemove={handleRemoveSong}
+                />
+              ) : (
+                <ChatPanel messages={messages} onSend={sendChat} />
+              )}
+            </motion.div>
           </div>
         )}
       </main>

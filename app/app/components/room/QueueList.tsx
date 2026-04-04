@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Music, Users } from "lucide-react";
 import type { Stream } from "./types";
 import QueueItem from "./QueueItem";
@@ -28,12 +27,7 @@ export default function QueueList({
     stream.upvotes.some((u) => u.userId === userId);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.15 }}
-      className="rounded-2xl border border-white/10 bg-white/5 lg:self-start"
-    >
+    <div>
       <div className="border-b border-white/10 px-5 py-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-400">
           <Users className="h-4 w-4 text-purple-400" />
@@ -72,6 +66,6 @@ export default function QueueList({
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

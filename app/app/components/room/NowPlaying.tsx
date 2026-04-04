@@ -1,23 +1,35 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { SkipForward, Music } from "lucide-react";
 import YouTubePlayer from "youtube-player";
 import type { Stream } from "./types";
 
+const REACTIONS = ["❤️", "🔥", "🎵", "😂", "👏", "🤩"];
+
+type FloatingReaction = {
+  id: string;
+  emoji: string;
+  x: number; // % from left — randomised so reactions don't stack on each other
+};
+
 interface NowPlayingProps {
   currentStream: Stream | null;
   queueLength: number;
-  isHost: boolean;       // only the host sees the skip button
+  isHost: boolean;
+  floatingReactions: FloatingReaction[];
   onPlayNext: () => void;
+  onSendReaction: (emoji: string) => void;
 }
 
 export default function NowPlaying({
   currentStream,
   queueLength,
   isHost,
+  floatingReactions,
   onPlayNext,
+  onSendReaction,
 }: NowPlayingProps) {
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<any>(null);
@@ -41,17 +53,11 @@ export default function NowPlaying({
       if (!playerRef.current) {
         const player = YouTubePlayer(playerContainerRef.current!, {
           videoId: nextVideoId,
-          playerVars: {
-            autoplay: 1,
-            rel: 0,
-          },
+          playerVars: { autoplay: 1, rel: 0 },
         });
 
         player.on("stateChange", (event: { data: number }) => {
-          // YouTube ended state is 0.
-          if (event.data === 0) {
-            onPlayNext();
-          }
+          if (event.data === 0) onPlayNext(); // 0 = video ended
         });
 
         playerRef.current = player;
@@ -76,20 +82,39 @@ export default function NowPlaying({
     >
       {currentStream ? (
         <>
+          {/* Video + floating reactions overlay */}
           <div className="relative aspect-video w-full bg-black">
             <div ref={playerContainerRef} className="absolute inset-0 h-full w-full" />
+
+            {/* Floating emoji reactions animate upward over the video */}
+            <AnimatePresence>
+              {floatingReactions.map((r) => (
+                <motion.span
+                  key={r.id}
+                  initial={{ y: 0, opacity: 1, scale: 1 }}
+                  animate={{ y: -120, opacity: 0, scale: 1.4 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 2, ease: "easeOut" }}
+                  // left is randomised per reaction so they don't all stack
+                  style={{ left: `${r.x}%` }}
+                  className="pointer-events-none absolute bottom-6 text-3xl"
+                >
+                  {r.emoji}
+                </motion.span>
+              ))}
+            </AnimatePresence>
           </div>
+
+          {/* Title row + skip button (host only) */}
           <div className="flex items-center justify-between p-4">
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium uppercase tracking-wider text-purple-400">
                 Now Playing
               </p>
               <h2 className="mt-1 truncate text-lg font-semibold">
-                {currentStream.title ||
-                  `Video ${currentStream.extractedId}`}
+                {currentStream.title || `Video ${currentStream.extractedId}`}
               </h2>
             </div>
-            {/* Skip button is only rendered for the host — non-hosts can't skip */}
             {isHost && (
               <button
                 onClick={onPlayNext}
@@ -100,6 +125,21 @@ export default function NowPlaying({
                 Skip
               </button>
             )}
+          </div>
+
+          {/* Reaction strip — visible to everyone */}
+          <div className="flex items-center gap-2 border-t border-white/5 px-4 py-3">
+            <span className="text-xs text-gray-500 mr-1">React:</span>
+            {REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => onSendReaction(emoji)}
+                className="rounded-lg px-2 py-1 text-lg transition-transform hover:scale-125 active:scale-95"
+                title={emoji}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         </>
       ) : (
