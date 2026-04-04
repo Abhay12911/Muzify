@@ -35,6 +35,24 @@ export async function POST(req: NextRequest) {
 
     const data = CreateStreamSchema.parse(await req.json());
 
+    // Rate limit: check if this user already added a song in the last 60 seconds in this room
+    // Date.now() - 60000 gives a timestamp 1 minute ago
+    // findFirst looks for ANY stream from this user in this room created after that timestamp
+    const recentStream = await prismaClient.stream.findFirst({
+      where: {
+        userId: session.user.id,
+        roomId: data.roomId,
+        createAt: { gte: new Date(Date.now() - 60 * 1000) },
+      },
+    });
+
+    if (recentStream) {
+      return NextResponse.json(
+        { message: "Please wait 1 minute before adding another song" },
+        { status: 429 } // 429 = Too Many Requests — the correct HTTP code for rate limiting
+      );
+    }
+
     if (!data.url.trim()) {
       return NextResponse.json(
         {
@@ -69,6 +87,12 @@ export async function POST(req: NextRequest) {
         extractedId,
         type: "Youtube",
       },
+    });
+
+    // Stamp the room as active now — this resets the 24h inactivity timer
+    await prismaClient.room.update({
+      where: { id: data.roomId },
+      data: { lastActivityAt: new Date() },
     });
 
     return NextResponse.json({

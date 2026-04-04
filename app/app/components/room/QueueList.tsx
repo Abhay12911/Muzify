@@ -8,17 +8,21 @@ import QueueItem from "./QueueItem";
 interface QueueListProps {
   queue: Stream[];
   userId: string;
+  isHost: boolean;
   onPlay: (stream: Stream) => void;
   onUpvote: (streamId: string) => void;
   onDownvote: (streamId: string) => void;
+  onRemove: (streamId: string) => void;
 }
 
 export default function QueueList({
   queue,
   userId,
+  isHost,
   onPlay,
   onUpvote,
   onDownvote,
+  onRemove,
 }: QueueListProps) {
   const hasUpvoted = (stream: Stream) =>
     stream.upvotes.some((u) => u.userId === userId);
@@ -57,9 +61,12 @@ export default function QueueList({
                 stream={stream}
                 index={i}
                 isUpvoted={hasUpvoted(stream)}
+                isHost={isHost}
+                userId={userId}
                 onPlay={onPlay}
                 onUpvote={onUpvote}
                 onDownvote={onDownvote}
+                onRemove={onRemove}
               />
             ))}
           </div>

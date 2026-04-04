@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
         const room = await prismaClient.room.create({
             data: {
                 code: generateRoomCode(),
+                hostId: session.user.id,  // mark creator as host permanently
                 users: {
                     create: {
                         userId: session.user.id,

@@ -16,10 +16,12 @@ export default function RoomClient({
   roomId,
   userId,
   userName,
+  isHost,  // true if this user created the room — passed from the server component
 }: {
   roomId: string;
   userId: string;
   userName: string;
+  isHost: boolean;
 }) {
   const router = useRouter();
   const [streams, setStreams] = useState<Stream[]>([]);
@@ -68,15 +70,13 @@ export default function RoomClient({
       setCurrentStreamId(null);
       return;
     }
-
     if (!currentStreamId) {
       const fallbackId = streams[0].id;
       setCurrentStreamId(fallbackId);
       setRoomCurrentStream(fallbackId);
       return;
     }
-
-    const exists = streams.some((stream) => stream.id === currentStreamId);
+    const exists = streams.some((s) => s.id === currentStreamId);
     if (!exists) {
       const fallbackId = streams[0].id;
       setCurrentStreamId(fallbackId);
@@ -105,8 +105,8 @@ export default function RoomClient({
       setUrl("");
       await fetchStreams();
       notifyStreamUpdate();
-    } catch (err: any) {
-      setError(err.message || "Failed to add song");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add song");
     } finally {
       setAdding(false);
     }
@@ -121,8 +121,8 @@ export default function RoomClient({
       });
       await fetchStreams();
       notifyStreamUpdate();
-    } catch (err: any) {
-      console.error("Failed to upvote stream:", err);
+    } catch {
+      // silently handle
     }
   };
 
@@ -140,26 +140,69 @@ export default function RoomClient({
     }
   };
 
-  const handlePlayNext = useCallback(() => {
+  // Deletes the given stream from DB, then advances to the next most-upvoted song.
+  // Called by: (1) skip button (host only), (2) YouTube player ended event (all clients).
+  // The DELETE is idempotent — the first client to call it wins, the rest silently get 404.
+  const handlePlayNext = useCallback(async () => {
+    // streams are already sorted by upvotes desc from the API
+    // so the first stream that isn't the current one IS the most upvoted next song
     const next = streams.find((s) => s.id !== currentStreamId);
-    if (!next) return;
+
+    // Delete the finished/skipped song so it doesn't reappear in the queue
+    if (currentStreamId) {
+      await fetch(`/api/streams/remove?streamId=${currentStreamId}`, {
+        method: "DELETE",
+      }).catch(() => {}); // swallow errors — another client may have already deleted it
+    }
+
+    if (!next) {
+      // Queue is empty after deletion — clear the player
+      setCurrentStreamId(null);
+      await fetchStreams();
+      notifyStreamUpdate();
+      return;
+    }
+
     setCurrentStreamId(next.id);
-    setRoomCurrentStream(next.id);
-  }, [streams, currentStreamId, setRoomCurrentStream]);
+    setRoomCurrentStream(next.id);   // broadcasts to all clients via WS
+    await fetchStreams();
+    notifyStreamUpdate();
+  }, [streams, currentStreamId, setRoomCurrentStream, fetchStreams, notifyStreamUpdate]);
 
-  const currentStream = useMemo(
-    () => streams.find((stream) => stream.id === currentStreamId) ?? null,
-    [streams, currentStreamId]
-  );
+  // Removes a song from the queue without advancing the player.
+  // Host can remove anyone's song; regular users can only remove their own.
+  const handleRemoveSong = useCallback(async (streamId: string) => {
+    try {
+      const res = await fetch(`/api/streams/remove?streamId=${streamId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.message || "Could not remove song");
+        return;
+      }
+      await fetchStreams();
+      notifyStreamUpdate();
+    } catch {
+      toast.error("Failed to remove song");
+    }
+  }, [fetchStreams, notifyStreamUpdate]);
 
-  const queue = currentStream
-    ? streams.filter((stream) => stream.id !== currentStream.id)
-    : streams;
-
+  // Manually play a specific song from the queue (clicking thumbnail)
+  // Does NOT delete anything — just changes the active player
   const handlePlay = useCallback((stream: Stream) => {
     setCurrentStreamId(stream.id);
     setRoomCurrentStream(stream.id);
   }, [setRoomCurrentStream]);
+
+  const currentStream = useMemo(
+    () => streams.find((s) => s.id === currentStreamId) ?? null,
+    [streams, currentStreamId]
+  );
+
+  const queue = currentStream
+    ? streams.filter((s) => s.id !== currentStream.id)
+    : streams;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
@@ -217,6 +260,7 @@ export default function RoomClient({
               <NowPlaying
                 currentStream={currentStream}
                 queueLength={queue.length}
+                isHost={isHost}         // controls whether skip button is visible
                 onPlayNext={handlePlayNext}
               />
               <AddSongForm
@@ -232,9 +276,11 @@ export default function RoomClient({
             <QueueList
               queue={queue}
               userId={userId}
+              isHost={isHost}           // controls whether remove button shows on others' songs
               onPlay={handlePlay}
               onUpvote={handleUpvote}
               onDownvote={handleDownvote}
+              onRemove={handleRemoveSong}
             />
           </div>
         )}

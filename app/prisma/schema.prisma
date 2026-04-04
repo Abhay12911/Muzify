@@ -27,9 +27,11 @@ model User {
 }
 
 model Room {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  createdAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  code           String   @unique
+  createdAt      DateTime @default(now())
+  hostId         String?          // who created the room — nullable so existing rooms don't break
+  lastActivityAt DateTime @default(now()) // updated on every add/vote — used for 24h expiry
 
   users      RoomUser[]
   streams    Stream[]

@@ -9,12 +9,14 @@ import type { Stream } from "./types";
 interface NowPlayingProps {
   currentStream: Stream | null;
   queueLength: number;
+  isHost: boolean;       // only the host sees the skip button
   onPlayNext: () => void;
 }
 
 export default function NowPlaying({
   currentStream,
   queueLength,
+  isHost,
   onPlayNext,
 }: NowPlayingProps) {
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
@@ -87,14 +89,17 @@ export default function NowPlaying({
                   `Video ${currentStream.extractedId}`}
               </h2>
             </div>
-            <button
-              onClick={onPlayNext}
-              disabled={queueLength === 0}
-              className="ml-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium transition-colors hover:border-purple-500/30 hover:bg-white/10 disabled:opacity-30"
-            >
-              <SkipForward className="h-4 w-4" />
-              Play Next
-            </button>
+            {/* Skip button is only rendered for the host — non-hosts can't skip */}
+            {isHost && (
+              <button
+                onClick={onPlayNext}
+                disabled={queueLength === 0}
+                className="ml-4 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium transition-colors hover:border-purple-500/30 hover:bg-white/10 disabled:opacity-30"
+              >
+                <SkipForward className="h-4 w-4" />
+                Skip
+              </button>
+            )}
           </div>
         </>
       ) : (
