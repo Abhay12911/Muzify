@@ -1,7 +1,7 @@
 {
-  "name": "muziffy-ws",
+  "name": "conflux-rooms-ws",
   "version": "1.0.0",
-  "description": "WebSocket server for Muziffy",
+  "description": "WebSocket server for Conflux Rooms",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

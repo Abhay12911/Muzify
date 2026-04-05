@@ -13,7 +13,7 @@ export function Appbar() {
             <Music className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-bold text-white tracking-tight">
-            Muziffy
+            Conflux Rooms
           </span>
         </div>
         <div>

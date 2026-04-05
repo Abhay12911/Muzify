@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Muziffy - Let the Crowd Pick the Music",
+  title: "Conflux Rooms - Where your vote controls the stream",
   description:
-    "Create rooms, share YouTube songs, and let everyone vote. The top-voted track plays next. Music, democratized.",
+    "Create shared rooms, add music or YouTube videos, and let the room decide what plays next.",
 };
 
 export default function RootLayout({

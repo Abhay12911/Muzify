@@ -115,10 +115,7 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mb-6 text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
           >
-            Let the Crowd Pick{" "}
-            <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
-              the Music
-            </span>
+            Conflux Rooms
           </motion.h1>
 
           <motion.p
@@ -127,8 +124,13 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="mx-auto mb-10 max-w-2xl text-lg text-gray-400 sm:text-xl"
           >
-            Create a room, share YouTube songs, and let everyone vote. The
-            top-voted track plays next. Music, democratized.
+            <span className="block bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+              Where your vote controls the stream.
+            </span>
+            <span className="block text-gray-400">Let the room decide.</span>
+            <span className="mt-4 block text-gray-500">
+              Create a room, share music or YouTube videos, and let everyone vote.
+            </span>
           </motion.p>
 
           <motion.div
@@ -360,11 +362,11 @@ export default function Home() {
               <Music className="h-4 w-4 text-white" />
             </div>
             <span className="text-sm font-semibold text-gray-400">
-              Muziffy
+              Conflux Rooms
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            Music, democratized. Built with Next.js.
+            Where your vote controls the stream. Built with Next.js.
           </p>
         </div>
       </footer>
