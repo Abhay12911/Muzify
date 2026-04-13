@@ -43,6 +43,7 @@ export default function RoomClient({
   // ── chat state ───────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTab, setActiveTab] = useState<"queue" | "chat">("queue");
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // ── reaction state ───────────────────────────────────────────────────────
   // Each entry animates for 2s then is removed
@@ -73,12 +74,10 @@ export default function RoomClient({
   }, []);
 
   const handleChatMessage = useCallback((msg: ChatMessage) => {
-    // Append incoming chat message to the list
-    // Using functional updater so we always append to the latest state
     setMessages((prev) => [...prev, msg]);
-    // If the chat tab is hidden, nudge the user
+    // Increment unread badge only when chat tab is not active
     setActiveTab((prev) => {
-      if (prev !== "chat") toast("💬 New message");
+      if (prev !== "chat") setUnreadCount((n) => n + 1);
       return prev;
     });
   }, []);
@@ -328,19 +327,36 @@ export default function RoomClient({
             >
               {/* Tab headers */}
               <div className="flex border-b border-white/10">
-                {(["queue", "chat"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
-                      activeTab === tab
-                        ? "text-purple-400 border-b-2 border-purple-400 -mb-px"
-                        : "text-gray-500 hover:text-gray-300"
-                    }`}
-                  >
-                    {tab === "queue" ? `Queue (${queue.length})` : "Chat"}
-                  </button>
-                ))}
+                <button
+                  onClick={() => setActiveTab("queue")}
+                  className={`flex-1 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
+                    activeTab === "queue"
+                      ? "border-b-2 border-blue-500 -mb-px text-blue-400"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  Queue ({queue.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("chat");
+                    setUnreadCount(0);
+                  }}
+                  className={`relative flex-1 py-3 text-sm font-semibold uppercase tracking-wider transition-colors ${
+                    activeTab === "chat"
+                      ? "border-b-2 border-blue-500 -mb-px text-blue-400"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  <span className="inline-flex items-center justify-center gap-1.5">
+                    Chat
+                    {unreadCount > 0 && (
+                      <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-blue-500 px-1 py-px text-[10px] font-black leading-none text-white shadow-lg shadow-blue-500/30">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
               </div>
 
               {/* Tab content */}
